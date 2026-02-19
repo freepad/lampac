@@ -643,9 +643,34 @@ namespace Lampac
 
             var syntaxTree = new List<SyntaxTree>();
 
-            string patchcontrol = Path.Combine("basemod", "Controllers");
-            if (!Directory.Exists(patchcontrol))
-                patchcontrol = "../../../../../BaseModule/Controllers";
+            // Try multiple possible paths for BaseModule/Controllers
+            // Different launch methods use different BaseDirectory:
+            // - dotnet run/publish: bin/Debug/net9.0/ or bin/Release/net9.0/
+            // - Rider IDE: bin/Debug/net9.0/ (working dir)
+            // - Direct exe: Lampac/ directory
+            string[] possiblePaths = new string[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "basemod", "Controllers"),
+                Path.Combine(AppContext.BaseDirectory, "BaseModule", "Controllers"), // Rider
+                Path.Combine(AppContext.BaseDirectory, "..", "BaseModule", "Controllers"),
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "BaseModule", "Controllers"),
+                Path.Combine("basemod", "Controllers"),
+                Path.Combine("BaseModule", "Controllers"),
+                "../../../../../BaseModule/Controllers" // Original relative path
+            };
+
+            string patchcontrol = null;
+            foreach (var path in possiblePaths)
+            {
+                if (Directory.Exists(path))
+                {
+                    patchcontrol = Path.GetFullPath(path);
+                    break;
+                }
+            }
+
+            if (patchcontrol == null)
+                return;
 
             foreach (string file in Directory.GetFiles(patchcontrol, "*.cs", SearchOption.AllDirectories))
             {

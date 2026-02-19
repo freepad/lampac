@@ -64,17 +64,21 @@ namespace Lampac
                 return false;
             }
 
-            foreach (string dllPath in Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "runtimes", "references"), "*.dll"))
+            var referencesPath = Path.Combine(AppContext.BaseDirectory, "runtimes", "references");
+            if (Directory.Exists(referencesPath))
             {
-                try
+                foreach (string dllPath in Directory.GetFiles(referencesPath, "*.dll"))
                 {
-                    AssemblyName assemblyName = AssemblyName.GetAssemblyName(dllPath);
-                    if (!IsAssemblyLoaded(assemblyName))
-                        Assembly.LoadFrom(dllPath);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to load {dllPath}: {ex.Message}");
+                    try
+                    {
+                        AssemblyName assemblyName = AssemblyName.GetAssemblyName(dllPath);
+                        if (!IsAssemblyLoaded(assemblyName))
+                            Assembly.LoadFrom(dllPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to load {dllPath}: {ex.Message}");
+                    }
                 }
             }
 
