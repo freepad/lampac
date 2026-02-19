@@ -341,3 +341,6 @@ ASALocalRun/
 healthchecksdb
 
 !Build
+
+# SonarQube
+.scannerwork
