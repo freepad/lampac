@@ -344,3 +344,6 @@ healthchecksdb
 
 # SonarQube
 .scannerwork
+
+# Runtime
+lampac
