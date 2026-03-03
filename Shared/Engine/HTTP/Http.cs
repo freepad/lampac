@@ -251,6 +251,11 @@ namespace Shared.Engine
         {
             try
             {
+                var (allowed, _, _) = ProxySecurity.ValidateRequestWithLogging(
+                    url, AppInit.conf.serverproxy?.security, "system", "http_getlocation");
+                if (!allowed)
+                    return null;
+
                 var handler = Handler(url, proxy);
                 handler.AllowAutoRedirect = allowAutoRedirect;
 
@@ -286,6 +291,16 @@ namespace Shared.Engine
         {
             try
             {
+                var (allowed, _, _) = ProxySecurity.ValidateRequestWithLogging(
+                    url, AppInit.conf.serverproxy?.security, "system", "http_responseheaders");
+                if (!allowed)
+                {
+                    return new HttpResponseMessage()
+                    {
+                        StatusCode = HttpStatusCode.Forbidden
+                    };
+                }
+
                 var handler = Handler(url, proxy);
                 handler.AllowAutoRedirect = allowAutoRedirect;
 
@@ -376,8 +391,18 @@ namespace Shared.Engine
         {
             try
             {
-                var loglines = IsLogged && weblog 
-                    ? StringBuilderPool.Rent() 
+                var (allowed, _, _) = ProxySecurity.ValidateRequestWithLogging(
+                    url, AppInit.conf.serverproxy?.security, "system", "http_basegetreader");
+                if (!allowed)
+                {
+                    return (false, new HttpResponseMessage()
+                    {
+                        StatusCode = HttpStatusCode.Forbidden
+                    });
+                }
+
+                var loglines = IsLogged && weblog
+                    ? StringBuilderPool.Rent()
                     : null;
 
                 try
@@ -903,6 +928,17 @@ namespace Shared.Engine
         #region BasePostReaderAsync
         async public static Task<(bool success, HttpResponseMessage response)> BasePostReaderAsync(Action<(Stream stream, CancellationToken ct, StringBuilder loglines)> action, string url, HttpContent data, string cookie = null, int MaxResponseContentBufferSize = 0, int timeoutSeconds = 15, List<HeadersModel> headers = null, WebProxy proxy = null, int httpversion = 1, CookieContainer cookieContainer = null, bool useDefaultHeaders = true, bool IgnoreDeserializeObject = false, bool statusCodeOK = true)
         {
+            // Security validation for proxy protection (always-on)
+            var (allowed, _, _) = ProxySecurity.ValidateRequestWithLogging(
+                url, AppInit.conf.serverproxy?.security, "system", "http_basepostreader");
+            if (!allowed)
+            {
+                return (false, new HttpResponseMessage()
+                {
+                    StatusCode = HttpStatusCode.Forbidden
+                });
+            }
+
             var loglines = IsLogged
                 ? StringBuilderPool.Rent()
                 : null;
@@ -1009,6 +1045,17 @@ namespace Shared.Engine
         #region BaseDownload
         async public static Task<(byte[] array, HttpResponseMessage response)> BaseDownload(string url, string cookie = null, string referer = null, int timeoutSeconds = 60, long MaxResponseContentBufferSize = 50_000_000, List<HeadersModel> headers = null, WebProxy proxy = null, bool statusCodeOK = true, bool useDefaultHeaders = true)
         {
+            // Security validation for proxy protection (always-on)
+            var (allowed, _, _) = ProxySecurity.ValidateRequestWithLogging(
+                url, AppInit.conf.serverproxy?.security, "system", "http_download");
+            if (!allowed)
+            {
+                return (null, new HttpResponseMessage()
+                {
+                    StatusCode = HttpStatusCode.Forbidden
+                });
+            }
+
             try
             {
                 var handler = Handler(url, proxy);
@@ -1054,6 +1101,12 @@ namespace Shared.Engine
         #region DownloadFile
         async public static Task<bool> DownloadFile(string url, string path, int timeoutSeconds = 20, List<HeadersModel> headers = null, WebProxy proxy = null)
         {
+            // Security validation for proxy protection (always-on)
+            var (allowed, _, _) = ProxySecurity.ValidateRequestWithLogging(
+                url, AppInit.conf.serverproxy?.security, "system", "http_downloadfile");
+            if (!allowed)
+                return false;
+
             try
             {
                 using (var handler = Handler(url, proxy))
@@ -1100,6 +1153,11 @@ namespace Shared.Engine
         #region DownloadToStream
         async public static Task<bool> DownloadToStream(Stream ms, string url, int timeoutSeconds = 20, List<HeadersModel> headers = null, WebProxy proxy = null)
         {
+            var (allowed, _, _) = ProxySecurity.ValidateRequestWithLogging(
+                url, AppInit.conf.serverproxy?.security, "system", "http_downloadtostream");
+            if (!allowed)
+                return false;
+
             try
             {
                 using (var handler = Handler(url, proxy))

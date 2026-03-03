@@ -192,6 +192,32 @@ namespace Lampac
                 o.TrackStatistics = AppInit.conf.openstat.enable;
             });
 
+            services.AddSingleton(sp =>
+            {
+                var memoryCache = sp.GetRequiredService<IMemoryCache>();
+                ProxySecurity.Initialize(memoryCache);
+
+                if (AppInit.conf.serverproxy?.security != null)
+                {
+                    var validation = Shared.Models.ServerProxy.ProxySecurityValidator.Validate(AppInit.conf.serverproxy.security);
+                    if (!validation.IsValid)
+                    {
+                        Console.WriteLine("\n[SECURITY VALIDATION ERRORS]");
+                        foreach (var error in validation.Errors)
+                            Console.WriteLine($"  ERROR: {error}");
+                    }
+                    if (validation.Warnings.Count > 0)
+                    {
+                        Console.WriteLine("\n[SECURITY VALIDATION WARNINGS]");
+                        foreach (var warning in validation.Warnings)
+                            Console.WriteLine($"  WARNING: {warning}");
+                    }
+                    Console.WriteLine();
+                }
+
+                return memoryCache;
+            });
+
             if (mods.ws)
             {
                 services.AddSignalR(o =>

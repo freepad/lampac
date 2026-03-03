@@ -122,7 +122,25 @@ namespace Lampac.Engine.Middlewares
                 }
                 #endregion
 
-                if (AppInit.conf.serverproxy.showOrigUri)
+                #region Security validation (always-on)
+                {
+                    var (allowed, errorReason, _) = ProxySecurity.ValidateRequestWithLogging(
+                        href, AppInit.conf.serverproxy?.security, requestInfo.IP, "proxyimg_request");
+
+                    if (!allowed)
+                    {
+                        httpContext.Response.StatusCode = 403;
+                        httpContext.Response.ContentType = "application/json";
+                        await httpContext.Response.WriteAsync(
+                            Newtonsoft.Json.JsonConvert.SerializeObject(new { error = "Forbidden", reason = errorReason }),
+                            ctsHttp.Token
+                        ).ConfigureAwait(false);
+                        return;
+                    }
+                }
+                #endregion
+
+                if (AppInit.conf.serverproxy?.showOrigUri == true)
                     httpContext.Response.Headers["PX-Orig"] = href;
 
                 #region width / height
@@ -252,6 +270,21 @@ namespace Lampac.Engine.Middlewares
                                 {
                                     href = url_reserve;
                                     url_reserve = null;
+
+                                    var (allowed, errorReason, _) = ProxySecurity.ValidateRequestWithLogging(
+                                        href, AppInit.conf.serverproxy?.security, requestInfo.IP, "proxyimg_fallback");
+
+                                    if (!allowed)
+                                    {
+                                        httpContext.Response.StatusCode = 403;
+                                        httpContext.Response.ContentType = "application/json";
+                                        await httpContext.Response.WriteAsync(
+                                            Newtonsoft.Json.JsonConvert.SerializeObject(new { error = "Forbidden", reason = errorReason }),
+                                            ctsHttp.Token
+                                        ).ConfigureAwait(false);
+                                        return;
+                                    }
+
                                     goto bypass_reset;
                                 }
 
@@ -343,6 +376,23 @@ namespace Lampac.Engine.Middlewares
                                 {
                                     href = url_reserve;
                                     url_reserve = null;
+
+                                    {
+                                        var (allowed, errorReason, _) = ProxySecurity.ValidateRequestWithLogging(
+                                            href, AppInit.conf.serverproxy?.security, requestInfo.IP, "proxyimg_rsize_fallback");
+
+                                        if (!allowed)
+                                        {
+                                            httpContext.Response.StatusCode = 403;
+                                            httpContext.Response.ContentType = "application/json";
+                                            await httpContext.Response.WriteAsync(
+                                                Newtonsoft.Json.JsonConvert.SerializeObject(new { error = "Forbidden", reason = errorReason }),
+                                                ctsHttp.Token
+                                            ).ConfigureAwait(false);
+                                            return;
+                                        }
+                                    }
+
                                     goto rsize_reset;
                                 }
 
