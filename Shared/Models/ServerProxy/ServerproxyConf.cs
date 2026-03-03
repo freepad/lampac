@@ -35,5 +35,7 @@ namespace Shared.Models.ServerProxy
         public string globalnameproxy { get; set; }
 
         public ProxySettings proxy { get; set; }
+
+        public ProxySecurityConf security { get; set; } = new ProxySecurityConf();
     }
 }

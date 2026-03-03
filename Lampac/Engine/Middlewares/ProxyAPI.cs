@@ -104,8 +104,26 @@ namespace Lampac.Engine.Middlewares
             }
 
             if (decryptLink == null)
+            {
                 decryptLink = new ProxyLinkModel(requestInfo.IP, null, null, servUri);
+            }
             #endregion
+
+            {
+                var (allowed, errorReason, _) = ProxySecurity.ValidateRequestWithLogging(
+                    servUri, init.security, requestInfo.IP, "proxy_request");
+
+                if (!allowed)
+                {
+                    httpContext.Response.StatusCode = 403;
+                    httpContext.Response.ContentType = "application/json";
+                    await httpContext.Response.WriteAsync(
+                        Newtonsoft.Json.JsonConvert.SerializeObject(new { error = "Forbidden", reason = errorReason }),
+                        httpContext.RequestAborted
+                    ).ConfigureAwait(false);
+                    return;
+                }
+            }
 
             if (init.showOrigUri)
             {
@@ -224,6 +242,22 @@ namespace Lampac.Engine.Middlewares
                     string[] links = servUri.Split(" or ");
                     servUri = links[0].Trim();
 
+                    {
+                        var (allowed, errorReason, _) = ProxySecurity.ValidateRequestWithLogging(
+                            servUri, init.security, requestInfo.IP, "proxy_request_or_link");
+
+                        if (!allowed)
+                        {
+                            httpContext.Response.StatusCode = 403;
+                            httpContext.Response.ContentType = "application/json";
+                            await httpContext.Response.WriteAsync(
+                                Newtonsoft.Json.JsonConvert.SerializeObject(new { error = "Forbidden", reason = errorReason }),
+                                httpContext.RequestAborted
+                            ).ConfigureAwait(false);
+                            return;
+                        }
+                    }
+
                     try
                     {
                         var hdlr = new HttpClientHandler()
@@ -264,6 +298,23 @@ namespace Lampac.Engine.Middlewares
                     }
 
                     servUri = servUri.Split(" ")[0].Trim();
+
+                    {
+                        var (allowed, errorReason, _) = ProxySecurity.ValidateRequestWithLogging(
+                            servUri, init.security, requestInfo.IP, "proxy_fallback_link");
+
+                        if (!allowed)
+                        {
+                            httpContext.Response.StatusCode = 403;
+                            httpContext.Response.ContentType = "application/json";
+                            await httpContext.Response.WriteAsync(
+                                Newtonsoft.Json.JsonConvert.SerializeObject(new { error = "Forbidden", reason = errorReason }),
+                                ctsHttp.Token
+                            ).ConfigureAwait(false);
+                            return;
+                        }
+                    }
+
                     decryptLink.uri = servUri;
 
                     if (init.showOrigUri)
@@ -287,7 +338,26 @@ namespace Lampac.Engine.Middlewares
                         {
                             if ((int)response.StatusCode is 301 or 302 or 303 or 0 || response.Headers.Location != null)
                             {
-                                httpContext.Response.Redirect(validArgs($"{AppInit.Host(httpContext)}/proxy/{ProxyLink.Encrypt(response.Headers.Location.AbsoluteUri, decryptLink)}", httpContext));
+                                var redirectUrl = response.Headers.Location?.AbsoluteUri;
+
+                                if (init.security != null && !string.IsNullOrWhiteSpace(redirectUrl))
+                                {
+                                    var (allowed, errorReason, _) = ProxySecurity.ValidateRequestWithLogging(
+                                        redirectUrl, init.security, requestInfo.IP, "proxy_redirect");
+
+                                    if (!allowed)
+                                    {
+                                        httpContext.Response.StatusCode = 403;
+                                        httpContext.Response.ContentType = "application/json";
+                                        await httpContext.Response.WriteAsync(
+                                            Newtonsoft.Json.JsonConvert.SerializeObject(new { error = "Forbidden", reason = "redirect_blocked" }),
+                                            ctsHttp.Token
+                                        ).ConfigureAwait(false);
+                                        return;
+                                    }
+                                }
+
+                                httpContext.Response.Redirect(validArgs($"{AppInit.Host(httpContext)}/proxy/{ProxyLink.Encrypt(redirectUrl, decryptLink)}", httpContext));
                                 return;
                             }
 
